@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { normalizeBaseUrl } from '../lib/api'
+import { fetchModelIds } from '../lib/modelList'
 import { customProviderSupportsNativeTransparentBackground } from '../lib/customProviderCapabilities'
 import { hasActiveDataOperations } from '../lib/dataOperations'
 import { isApiProxyAvailable, isApiProxyLocked, readClientDevProxyConfig } from '../lib/devProxy'
@@ -58,6 +59,7 @@ import { TooltipButton } from './TooltipButton'
 import GeneralSettingsTab from './settings/GeneralSettingsTab'
 import AgentSettingsTab from './settings/AgentSettingsTab'
 import CustomProviderModal from './settings/CustomProviderModal'
+import ModelSelect from './settings/ModelSelect'
 import ProfileImportUrlModal, { type CopyImportUrlOptions } from './settings/ProfileImportUrlModal'
 import ZipDownloadRouteModal, { ZIP_DOWNLOAD_ROUTE_OPTIONS } from './settings/ZipDownloadRouteModal'
 import MarkdownRenderer from './MarkdownRenderer'
@@ -182,6 +184,8 @@ export default function SettingsModal() {
   const [timeoutInput, setTimeoutInput] = useState(String(getActiveApiProfile(settings).timeout))
   const [agentMaxToolRoundsInput, setAgentMaxToolRoundsInput] = useState(String(settings.agentMaxToolRounds))
   const [showApiKey, setShowApiKey] = useState(false)
+  const [modelListCache, setModelListCache] = useState<Record<string, string[]>>({})
+  const [modelQuery, setModelQuery] = useState<{ key: string, loading: boolean, error: string | null } | null>(null)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [profileMenuMaxHeight, setProfileMenuMaxHeight] = useState(DEFAULT_DROPDOWN_MAX_HEIGHT)
   const [showCustomProviderImport, setShowCustomProviderImport] = useState(false)
@@ -240,6 +244,10 @@ export default function SettingsModal() {
   const activeCustomProviderAsync = isAsyncCustomProvider(activeCustomProvider)
   const apiProxyChecked = activeProfileApiProxyEligible && (apiProxyLocked || activeProfile.apiProxy)
   const apiProxyEnabled = apiProxyAvailable && activeProfileApiProxyEligible && apiProxyChecked
+  // 模型列表按「配置 + 接口地址 + Key + 代理」缓存，任一项变化即视为过期
+  const modelListKey = `${activeProfile.id}|${activeProfile.baseUrl}|${activeProfile.apiKey}|${apiProxyChecked}`
+  const activeModelIds = modelListCache[modelListKey] ?? []
+  const activeModelQuery = modelQuery?.key === modelListKey ? modelQuery : null
   const defaultProviderOrder = ['openai', 'sb2api-async', 'fal', ...draft.customProviders.map(p => p.id)]
   const providerOrder = draft.providerOrder || defaultProviderOrder
 
@@ -533,6 +541,23 @@ export default function SettingsModal() {
     if (activeProfileLocked && (Object.keys(patch).length !== 1 || patch.apiKey === undefined)) return
     const nextDraft = getDraftWithActiveProfilePatch(patch)
     commitSettings(nextDraft)
+  }
+
+  const handleQueryModelIds = async () => {
+    const key = modelListKey
+    setModelQuery({ key, loading: true, error: null })
+
+    try {
+      const ids = await fetchModelIds({
+        baseUrl: activeProfile.baseUrl,
+        apiKey: activeProfile.apiKey,
+        apiProxy: apiProxyChecked,
+      })
+      setModelListCache((prev) => ({ ...prev, [key]: ids }))
+      setModelQuery({ key, loading: false, error: ids.length ? null : '接口未返回任何模型。' })
+    } catch (err) {
+      setModelQuery({ key, loading: false, error: err instanceof Error ? err.message : String(err) })
+    }
   }
 
   const handleClose = () => {
@@ -1564,20 +1589,21 @@ export default function SettingsModal() {
               )}
 
               {/* 7. 模型 ID（紧跟接口选择） */}
-              <label className="block">
+              <div className="block">
                 <span className="mb-1.5 block text-sm text-gray-600 dark:text-gray-300">
                   模型 ID
                 </span>
-                <input
+                <ModelSelect
                   value={activeProfile.model}
-                  onChange={(e) => updateActiveProfile({ model: e.target.value })}
-                  onBlur={(e) => commitActiveProfilePatch({ model: e.target.value })}
-                  type="text"
-                  disabled={activeProfileLocked}
+                  onChange={(value) => updateActiveProfile({ model: value })}
+                  onCommit={(value) => commitActiveProfilePatch({ model: value })}
+                  options={activeModelIds}
                   placeholder={activeProfile.provider === 'fal' ? DEFAULT_FAL_MODEL : getDefaultModelForMode(activeProfile.apiMode ?? DEFAULT_SETTINGS.apiMode)}
-                  className="w-full rounded-xl border border-gray-200/70 bg-white/60 px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:focus:border-blue-500/50"
+                  disabled={activeProfileLocked}
+                  loading={activeModelQuery?.loading ?? false}
+                  onQuery={activeProviderIsOpenAICompatible ? handleQueryModelIds : undefined}
                 />
-                  <div data-selectable-text className="mt-1.5 text-xs text-gray-500 dark:text-gray-500">
+                <div data-selectable-text className="mt-1.5 text-xs text-gray-500 dark:text-gray-500">
                   {activeProfile.provider === 'fal' ? (
                     <>
                       当前支持：<code className="rounded bg-gray-100 px-1 py-0.5 dark:bg-white/[0.06]">openai/gpt-image-2</code>{' '}
@@ -1595,26 +1621,36 @@ export default function SettingsModal() {
                     <>支持通过查询参数覆盖：<code className="rounded bg-gray-100 px-1 py-0.5 dark:bg-white/[0.06]">?model=</code>。</>
                   )}
                 </div>
-              </label>
+                {activeModelQuery?.error ? (
+                  <div data-selectable-text className="mt-1.5 text-xs text-red-500 dark:text-red-400">
+                    查询失败：{activeModelQuery.error}
+                  </div>
+                ) : activeModelIds.length ? (
+                  <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-500">
+                    已获取 {activeModelIds.length} 个模型，点击输入框右侧箭头可从列表中选择。
+                  </div>
+                ) : null}
+              </div>
 
               {activeProfile.provider === 'openai' && activeProfile.apiMode === 'responses' && (
-                <label className="block">
+                <div className="block">
                   <span className="mb-1.5 block text-sm text-gray-600 dark:text-gray-300">图像生成模型</span>
-                  <input
+                  <ModelSelect
                     value={activeProfile.imageGenerationModel ?? ''}
-                    onChange={(e) => updateActiveProfile({ imageGenerationModel: e.target.value })}
-                    onBlur={(e) => commitActiveProfilePatch({ imageGenerationModel: e.target.value })}
-                    type="text"
-                    disabled={activeProfileLocked}
+                    onChange={(value) => updateActiveProfile({ imageGenerationModel: value })}
+                    onCommit={(value) => commitActiveProfilePatch({ imageGenerationModel: value })}
+                    options={activeModelIds}
                     placeholder={DEFAULT_IMAGES_MODEL}
-                    className="w-full rounded-xl border border-gray-200/70 bg-white/60 px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:focus:border-blue-500/50"
+                    disabled={activeProfileLocked}
+                    loading={activeModelQuery?.loading ?? false}
+                    onQuery={handleQueryModelIds}
                   />
                   <div data-selectable-text className="mt-1.5 text-xs text-gray-500 dark:text-gray-500">
                     Responses API 的 <code className="rounded bg-gray-100 px-1 py-0.5 dark:bg-white/[0.06]">image_generation</code> 工具需要使用 GPT Image 模型，例如 <code className="rounded bg-gray-100 px-1 py-0.5 dark:bg-white/[0.06]">{DEFAULT_IMAGES_MODEL}</code>。
                     留空时不发送工具模型 ID，保持 API 默认值。
                     支持通过查询参数覆盖：<code className="rounded bg-gray-100 px-1 py-0.5 dark:bg-white/[0.06]">?imageGenerationModel=</code>。
                   </div>
-                </label>
+                </div>
               )}
 
               {(activeProfile.apiMode ?? DEFAULT_SETTINGS.apiMode) === 'responses' && activeProfile.provider === 'openai' && (

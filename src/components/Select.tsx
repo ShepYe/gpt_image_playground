@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { DEFAULT_DROPDOWN_MAX_HEIGHT } from '../lib/dropdown'
+import { DEFAULT_DROPDOWN_MAX_HEIGHT, getDropdownLayout } from '../lib/dropdown'
 import { ChevronDownIcon, EditIcon, PlusIcon, TrashIcon, DragHandleIcon } from './icons'
 import ViewportTooltip from './ViewportTooltip'
 import { useTooltip } from '../hooks/useTooltip'
@@ -115,36 +115,9 @@ export default function Select({ value, onChange, onReorder, options, disabled, 
 
     const updateMenuMaxHeight = () => {
       if (!triggerRef.current) return
-      const trigger = triggerRef.current
-      const rect = trigger.getBoundingClientRect()
-      
-      let availableBelow = window.innerHeight - rect.bottom - 8
-      let availableAbove = rect.top - 8
-      
-      let parent = trigger.parentElement
-      while (parent && parent !== document.body) {
-        const style = window.getComputedStyle(parent)
-        if (/(auto|scroll|hidden|clip)/.test(`${style.overflow} ${style.overflowY}`)) {
-          const parentRect = parent.getBoundingClientRect()
-          availableBelow = Math.min(availableBelow, parentRect.bottom - rect.bottom - 8)
-          availableAbove = Math.min(availableAbove, rect.top - parentRect.top - 8)
-        }
-        parent = parent.parentElement
-      }
-      
-      let newPlacement: 'bottom' | 'top' = 'bottom'
-      let maxHeight = DEFAULT_DROPDOWN_MAX_HEIGHT
-      
-      if (availableBelow < 120 && availableAbove > availableBelow) {
-        newPlacement = 'top'
-        maxHeight = Math.min(DEFAULT_DROPDOWN_MAX_HEIGHT, Math.floor(availableAbove))
-      } else {
-        newPlacement = 'bottom'
-        maxHeight = Math.min(DEFAULT_DROPDOWN_MAX_HEIGHT, Math.floor(availableBelow))
-      }
-      
-      setPlacement(newPlacement)
-      setMenuMaxHeight(Math.max(0, maxHeight))
+      const layout = getDropdownLayout(triggerRef.current)
+      setPlacement(layout.placement)
+      setMenuMaxHeight(layout.maxHeight)
     }
 
     updateMenuMaxHeight()
