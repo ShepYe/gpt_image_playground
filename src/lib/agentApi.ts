@@ -86,6 +86,7 @@ function createAgentInstructions(settings: AppSettings, codexCliSize?: string) {
   }
 
   if (settings.agentMathFormattingPrompt) instructions.push('', AGENT_MATH_FORMATTING_INSTRUCTIONS)
+  if (settings.agentCustomPrompt.trim()) instructions.push('', '## User custom instructions', settings.agentCustomPrompt.trim())
 
   return instructions.join('\n')
 }

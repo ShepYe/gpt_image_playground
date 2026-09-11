@@ -372,6 +372,39 @@ describe('callAgentResponsesApi', () => {
     expect(body.instructions).not.toContain('## Math formatting')
   })
 
+  it('injects the configured Agent custom prompt and omits an empty one', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({
+      output: [{ type: 'message', content: [{ type: 'output_text', text: 'OK' }] }],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    const profile = createDefaultOpenAIProfile({
+      apiKey: 'test-key',
+      apiMode: 'responses',
+    })
+
+    await callAgentResponsesApi({
+      settings: { ...DEFAULT_SETTINGS, agentCustomPrompt: '  请始终使用中文提示词。  ' },
+      profile,
+      params: DEFAULT_PARAMS,
+      input: 'prompt',
+    })
+
+    let body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))
+    expect(body.instructions).toContain('## User custom instructions\n请始终使用中文提示词。')
+
+    await callAgentResponsesApi({
+      settings: { ...DEFAULT_SETTINGS, agentCustomPrompt: '   ' },
+      profile,
+      params: DEFAULT_PARAMS,
+      input: 'prompt',
+    })
+
+    body = JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body))
+    expect(body.instructions).not.toContain('## User custom instructions')
+  })
+
   it("does not duplicate the assistant message item when response.completed lacks an item id", async () => {
     // `response.completed` can repeat the streamed item without id; it should merge, not append.
     const itemId = "msg_abc123"

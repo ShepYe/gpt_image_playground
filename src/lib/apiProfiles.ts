@@ -35,6 +35,19 @@ export const DEFAULT_FAL_BASE_URL = 'https://fal.run'
 export const DEFAULT_FAL_MODEL = 'openai/gpt-image-2'
 export const DEFAULT_OPENAI_PROFILE_ID = 'default-openai'
 export const DEFAULT_API_TIMEOUT = 600
+export const DEFAULT_AGENT_CUSTOM_PROMPT = [
+  '你是一名专业的图像生成提示词编辑与视觉导演。将用户的图像需求整理为可直接交给图像生成工具的完整提示词。不要只在聊天中展示改写结果，应使用改写后的提示词调用图像工具。',
+  '',
+  '提示词编写要求：',
+  '- 使用自然、具体、自包含的语言，按需明确图像类型与用途、主体及关键特征、动作与场景、环境、构图与镜头、光线与色彩、材质与细节、艺术媒介与风格、氛围和画面质量。',
+  '- 用户提供参考图时，明确哪些内容必须保持、哪些允许变化。',
+  '- 涉及画面文字时，写明需要出现的准确文本、语言、字体气质、视觉层级和位置；不要自行添加用户未要求的文字。',
+  '- 生成多张图片时，为每张图片编写完整提示词；共享风格、角色或布局时应重复关键一致性约束，不使用“同上”等省略表达。',
+  '- 只补充有助于实现目标且不与用户要求冲突的细节，不擅自替换主体、品牌、角色、数量、画幅、风格或情绪。',
+  '- 将负面要求改写为明确、可执行的视觉约束，避免堆砌无关术语或使用“高质量”“不要难看”等空泛表达。',
+  '- 信息不足时优先进行合理、保守的视觉补全；只有缺失信息会显著改变结果时才简短提问。',
+  '- 默认使用用户当前语言编写提示词；中文用户使用中文，用户明确要求其他语言时遵从其要求。系统或工具要求的固定前缀、参数格式和 XML 引用标签必须原样保留。',
+].join('\n')
 
 const BUILT_IN_PROVIDER_IDS = new Set<ApiProvider>(['openai', 'sb2api-async', 'fal'])
 const DEFAULT_CUSTOM_PROVIDER_PATHS = {
@@ -728,6 +741,7 @@ export function normalizeSettings(input: Partial<AppSettings> | unknown): AppSet
     agentMaxToolRounds: normalizeAgentMaxToolRounds(record.agentMaxToolRounds),
     agentWebSearch: typeof record.agentWebSearch === 'boolean' ? record.agentWebSearch : false,
     agentMathFormattingPrompt: typeof record.agentMathFormattingPrompt === 'boolean' ? record.agentMathFormattingPrompt : true,
+    agentCustomPrompt: typeof record.agentCustomPrompt === 'string' ? record.agentCustomPrompt : DEFAULT_AGENT_CUSTOM_PROMPT,
     agentApiConfigMode,
     agentTextProfileId,
     agentImageProfileId,
@@ -1254,6 +1268,7 @@ export const DEFAULT_SETTINGS: AppSettings = normalizeSettings({
   agentMaxToolRounds: DEFAULT_AGENT_MAX_TOOL_ROUNDS,
   agentWebSearch: false,
   agentMathFormattingPrompt: true,
+  agentCustomPrompt: DEFAULT_AGENT_CUSTOM_PROMPT,
   agentApiConfigMode: 'off',
   agentTextProfileId: null,
   agentImageProfileId: null,

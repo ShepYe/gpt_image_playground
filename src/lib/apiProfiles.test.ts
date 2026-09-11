@@ -1656,6 +1656,16 @@ describe('custom providers', () => {
     expect(normalizeSettings({ agentMathFormattingPrompt: false }).agentMathFormattingPrompt).toBe(false)
   })
 
+  it('normalizes the Agent custom prompt and preserves an explicit empty value', () => {
+    expect(DEFAULT_SETTINGS.agentCustomPrompt).toContain('专业的图像生成提示词编辑')
+    expect(DEFAULT_SETTINGS.agentCustomPrompt).toContain('构图与镜头')
+    expect(DEFAULT_SETTINGS.agentCustomPrompt).toContain('不要只在聊天中展示改写结果')
+    expect(DEFAULT_SETTINGS.agentCustomPrompt).toContain('固定前缀、参数格式和 XML 引用标签必须原样保留')
+    expect(normalizeSettings({}).agentCustomPrompt).toBe(DEFAULT_SETTINGS.agentCustomPrompt)
+    expect(normalizeSettings({ agentCustomPrompt: '自定义指令' }).agentCustomPrompt).toBe('自定义指令')
+    expect(normalizeSettings({ agentCustomPrompt: '' }).agentCustomPrompt).toBe('')
+  })
+
   it('disables prompt rewrite allowance by default', () => {
     expect(DEFAULT_SETTINGS.allowPromptRewrite).toBe(false)
     expect(normalizeSettings({}).allowPromptRewrite).toBe(false)

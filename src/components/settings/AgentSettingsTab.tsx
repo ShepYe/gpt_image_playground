@@ -4,7 +4,7 @@ import {
   type ApiProfile,
   type AppSettings,
 } from '../../types'
-import { normalizeAgentMaxToolRounds } from '../../lib/apiProfiles'
+import { DEFAULT_AGENT_CUSTOM_PROMPT, normalizeAgentMaxToolRounds } from '../../lib/apiProfiles'
 import Select from '../Select'
 
 interface SelectOption {
@@ -114,6 +114,30 @@ export default function AgentSettingsTab({
           )}
         </>
       )}
+      <div className="block">
+        <div className="mb-1.5 flex items-center justify-between gap-3">
+          <span className="block text-sm text-gray-600 dark:text-gray-300">自定义提示词</span>
+          <button
+            type="button"
+            onClick={() => commitSettings({ ...draft, agentCustomPrompt: DEFAULT_AGENT_CUSTOM_PROMPT })}
+            disabled={draft.agentCustomPrompt === DEFAULT_AGENT_CUSTOM_PROMPT}
+            className="shrink-0 text-xs text-blue-500 transition-colors hover:text-blue-600 disabled:cursor-default disabled:text-gray-400 dark:text-blue-400 dark:hover:text-blue-300 dark:disabled:text-gray-600"
+          >
+            恢复默认
+          </button>
+        </div>
+        <textarea
+          aria-label="Agent 自定义提示词"
+          value={draft.agentCustomPrompt}
+          onChange={(e) => commitSettings({ ...draft, agentCustomPrompt: e.target.value })}
+          rows={5}
+          placeholder="留空则不注入自定义提示词"
+          className="w-full resize-y rounded-xl border border-gray-200/70 bg-white/60 px-3 py-2.5 text-sm leading-relaxed text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:placeholder:text-gray-600 dark:focus:border-blue-500/50"
+        />
+        <div data-selectable-text className="mt-1.5 text-xs leading-relaxed text-gray-500 dark:text-gray-500">
+          作为额外指令追加到 Agent 的内置提示词中。留空后仅使用内置提示词。
+        </div>
+      </div>
       <label className="block">
         <span className="mb-1.5 block text-sm text-gray-600 dark:text-gray-300">最大工具调用轮数</span>
         <input
